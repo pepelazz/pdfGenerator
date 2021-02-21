@@ -1,0 +1,2 @@
+-- для добавления кирилического шрифта нужно выполнить команду
+makefont --embed --enc=cp1251.map --dst=. Roboto-Regular.ttf
