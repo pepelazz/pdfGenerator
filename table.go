@@ -1,5 +1,10 @@
 package pdfGenerator
 
+import (
+	"fmt"
+	"strings"
+)
+
 const (
 	COLOR_BLACK           = "black"
 	COLOR_DARK_BLUE       = "dark_blue"
@@ -36,9 +41,18 @@ func (tbl *Table) AddRow(r TableRow) {
 }
 
 // helper для создания простой строки из массива текстовых блоков
-func (tbl *Table) AddRowSimple(txtList []string) {
+func (tbl *Table) AddRowSimple(pd *PdfDoc, txtList []string) {
 	r := TableRow{Cells: []TableCell{}}
-	for _, txt := range txtList {
+	for i, txt := range txtList {
+		// если теест превышает ширину, то разделяем его
+		if pd.Pdf.GetStringWidth(txt) >= tbl.RowWidth[i] {
+			lines := pd.Pdf.SplitLines([]byte(txt), tbl.RowWidth[i])
+			txtArr := make([]string, len(lines))
+			for j, ln := range lines {
+				txtArr[j] = fmt.Sprintf("%s", ln)
+			}
+			txt = strings.Join(txtArr, "\n")
+		}
 		r.Cells = append(r.Cells, TableCell{Data: Text{Data: txt}})
 	}
 	tbl.Rows = append(tbl.Rows, r)
@@ -46,6 +60,21 @@ func (tbl *Table) AddRowSimple(txtList []string) {
 
 func (r *TableRow) AddCell(c TableCell) {
 	r.Cells = append(r.Cells, c)
+}
+
+func (tbl *Table) getHeight(pd *PdfDoc) float64 {
+	h := 0.0
+	for _, r := range tbl.Rows {
+		h = h + r.getHeight(pd, *tbl)
+	}
+	return h
+}
+
+// вычисление - выходит за границу или нет
+func (tbl *Table) IsTableOutOfPage(pd *PdfDoc, headerHeight float64) bool {
+	_, pH := pd.Pdf.GetPageSize()
+	_, _, _, bMargin := pd.Pdf.GetMargins()
+	return pd.Pdf.GetY()+tbl.getHeight(pd)+headerHeight > (pH - bMargin)
 }
 
 func (pd *PdfDoc) DrawTable(tbl Table) error {
