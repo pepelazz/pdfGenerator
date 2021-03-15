@@ -44,7 +44,7 @@ package pdfGenerator
 //	//fmt.Printf("w: %v h: %v\n", pW, pH)
 //	pdf.AddFont("Helvetica", "", "helvetica_1251.json")
 //	pdf.SetFont("Helvetica", "", 8)
-//	tr := pdf.UnicodeTranslatorFromDescriptor("cp1251")
+//	Tr := pdf.UnicodeTranslatorFromDescriptor("cp1251")
 //
 //	// печать страниц
 //	pdf.SetFooterFunc(func() {
@@ -67,7 +67,7 @@ package pdfGenerator
 //		startX := pdf.GetX()
 //		for _, line := range text {
 //			pdf.SetXY(startX, pdf.GetY())
-//			pdf.CellFormat(w, LINE_HEIGHT, tr(line), "", 1, alignStr, false, 0, "")
+//			pdf.CellFormat(w, LINE_HEIGHT, Tr(line), "", 1, alignStr, false, 0, "")
 //		}
 //	}
 //

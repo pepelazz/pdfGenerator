@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/jung-kurt/gofpdf"
-	"go/build"
 	"os"
 	"strings"
 )
@@ -12,7 +11,7 @@ import (
 type (
 	PdfDoc struct {
 		Pdf *gofpdf.Fpdf
-		tr  func(string) string
+		Tr  func(string) string
 	}
 
 	Image struct {
@@ -42,22 +41,21 @@ type (
 func Init() (*PdfDoc, error) {
 	pd := PdfDoc{}
 	// находим путь для папки с шрифтами
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		gopath = build.Default.GOPATH
-	}
-	fontPath := fmt.Sprintf("%s/src/github.com/pepelazz/pdfGenerator/font/", gopath)
-
-	pd.Pdf = gofpdf.New("P", "mm", "A4", fontPath)
-	//fmt.Printf("w: %v h: %v\n", pW, pH)
-	pd.Pdf.AddFont("Helvetica", "", "helvetica_1251.json")
-	pd.Pdf.AddFont("Roboto-Regular", "", "Roboto-Regular.json")
-	pd.Pdf.AddFont("Roboto-Regular", "B", "Roboto-Bold.json")
-	pd.Pdf.AddFont("Roboto-Regular", "I", "Roboto-Italic.json")
-	pd.Pdf.AddFont("Roboto-Regular", "BI", "Roboto-BoldItalic.json")
-	pd.Pdf.SetFont("Roboto-Regular", "", 8)
-	//pd.Pdf.SetFont("Helvetica", "B", 8)
-	pd.tr = pd.Pdf.UnicodeTranslatorFromDescriptor("cp1251")
+	//gopath := os.Getenv("GOPATH")
+	//if gopath == "" {
+	//	gopath = build.Default.GOPATH
+	//}
+	//fontPath := fmt.Sprintf("%s/src/github.com/pepelazz/pdfGenerator/font/", gopath)
+	//
+	//pd.Pdf = gofpdf.New("P", "mm", "A4", fontPath)
+	////fmt.Printf("w: %v h: %v\n", pW, pH)
+	//pd.Pdf.AddFont("Helvetica", "", "helvetica_1251.json")
+	//pd.Pdf.AddFont("Roboto-Regular", "", "Roboto-Regular.json")
+	//pd.Pdf.AddFont("Roboto-Regular", "B", "Roboto-Bold.json")
+	//pd.Pdf.AddFont("Roboto-Regular", "I", "Roboto-Italic.json")
+	//pd.Pdf.AddFont("Roboto-Regular", "BI", "Roboto-BoldItalic.json")
+	//pd.Pdf.SetFont("Roboto-Regular", "", 8)
+	//pd.Tr = pd.Pdf.UnicodeTranslatorFromDescriptor("cp1251")
 	return &pd, nil
 }
 
@@ -74,6 +72,17 @@ func (pd *PdfDoc) Print(fileName string) error {
 
 	_, err = f.Write(buf.Bytes())
 	return err
+}
+
+func (pd *PdfDoc) PrintToByte() ([]byte, error) {
+
+	buf := new(bytes.Buffer)
+	err := pd.Pdf.Output(buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), err
 }
 
 func (pd *PdfDoc) AddPage() {
@@ -121,7 +130,7 @@ func (pd *PdfDoc) PrintText(t Text) {
 	pd.AddY(t.PaddingTop)
 	for _, line := range strings.Split(t.Data, "\n") {
 		pd.Pdf.SetXY(t.X, pd.GetY())
-		pd.Pdf.CellFormat(t.Width, t.LineHeight, pd.tr(line), "", 1, t.Align, false, 0, "")
+		pd.Pdf.CellFormat(t.Width, t.LineHeight, pd.Tr(line), "", 1, t.Align, false, 0, "")
 	}
 	// в конце сбрасываем стиль
 	pd.Pdf.SetFontStyle("")
@@ -136,6 +145,12 @@ func (pd *PdfDoc) SetY(v float64) {
 }
 func (pd *PdfDoc) SetX(v float64) {
 	pd.Pdf.SetXY(v, pd.Pdf.GetY())
+}
+
+func (pd *PdfDoc) GetFullWidth() float64 {
+	pW, _ := pd.Pdf.GetPageSize()
+	leftMargin, _, _, _ := pd.Pdf.GetMargins()
+	return pW - leftMargin*2
 }
 
 func (t *Text) CalcHeight(pd *PdfDoc) {

@@ -21,7 +21,7 @@ type (
 		Rows          []TableRow
 		PaddingTop    float64
 		PaddingBottom float64
-		RowWidth      []float64
+		RowWidth      []float64 // в процентах
 		IsBold        bool
 	}
 
@@ -33,6 +33,7 @@ type (
 	TableCell struct {
 		Data       Text
 		PaddingTop float64
+		Colspan int
 	}
 )
 
@@ -44,15 +45,25 @@ func (tbl *Table) AddRow(r TableRow) {
 func (tbl *Table) AddRowSimple(pd *PdfDoc, txtList []string) {
 	r := TableRow{Cells: []TableCell{}}
 	for i, txt := range txtList {
-		// если теест превышает ширину, то разделяем его
-		if pd.Pdf.GetStringWidth(txt) >= tbl.RowWidth[i] {
-			lines := pd.Pdf.SplitLines([]byte(txt), tbl.RowWidth[i])
-			txtArr := make([]string, len(lines))
-			for j, ln := range lines {
-				txtArr[j] = fmt.Sprintf("%s", ln)
-			}
-			txt = strings.Join(txtArr, "\n")
+		colWidth := tbl.RowWidth[i]
+		// если текст превышает ширину, то разделяем его
+			if pd.Pdf.GetStringWidth(txt) >= colWidth {
+				lines := pd.Pdf.SplitLines([]byte(txt), colWidth)
+				txtArr := make([]string, len(lines))
+				for j, ln := range lines {
+					txtArr[j] = fmt.Sprintf("%s", ln)
+				}
+				txt = strings.Join(txtArr, "\n")
 		}
+		r.Cells = append(r.Cells, TableCell{Data: Text{Data: txt}})
+	}
+	tbl.Rows = append(tbl.Rows, r)
+}
+
+// helper для создания простой строки из массива текстовых блоков без автоматических переносов
+func (tbl *Table) AddRowSimpleWithoutHypernation(pd *PdfDoc, txtList []string) {
+	r := TableRow{Cells: []TableCell{}}
+	for _, txt := range txtList {
 		r.Cells = append(r.Cells, TableCell{Data: Text{Data: txt}})
 	}
 	tbl.Rows = append(tbl.Rows, r)
@@ -79,16 +90,24 @@ func (tbl *Table) IsTableOutOfPage(pd *PdfDoc, headerHeight float64) bool {
 
 func (pd *PdfDoc) DrawTable(tbl Table) error {
 	pd.Pdf.SetLineWidth(BORDER_WIDTH)
-	leftMargin, _, _, _ := pd.Pdf.GetMargins()
+	startX := pd.Pdf.GetX()
 	for _, r := range tbl.Rows {
 		drawTableRow(pd, tbl, r)
-		pd.Pdf.SetXY(leftMargin, pd.Pdf.GetY()+r.getHeight(pd, tbl))
+		pd.Pdf.SetXY(startX, pd.Pdf.GetY()+r.getHeight(pd, tbl))
 	}
 	return nil
 }
 
 func drawTableRow(pd *PdfDoc, tbl Table, row TableRow) {
 	h := row.getHeight(pd, tbl)
+
+	// если выходит за границы страницы, то добавляем страницу
+	_, pH := pd.Pdf.GetPageSize()
+	_, _, _, bMargin := pd.Pdf.GetMargins()
+	if pd.Pdf.GetY()+h > (pH - bMargin) {
+		pd.AddPage()
+	}
+
 	borderWidth := pd.Pdf.GetLineWidth()
 	yStart := pd.Pdf.GetY()
 	xStart := pd.Pdf.GetX()
@@ -97,6 +116,19 @@ func drawTableRow(pd *PdfDoc, tbl Table, row TableRow) {
 		// проставляем ширину колонки
 		if len(tbl.RowWidth) > i {
 			c.Data.Width = tbl.RowWidth[i]
+		}
+		if c.Colspan > 1 {
+			j := 1
+			for  {
+				if len(tbl.RowWidth) == i+j {
+					break
+				}
+				c.Data.Width = c.Data.Width + tbl.RowWidth[i+j] - borderWidth
+				j++
+				if j == c.Colspan {
+					break
+				}
+			}
 		}
 		drawTableCell(pd, tbl, row, c, h)
 		xStart = xStart + c.Data.Width - borderWidth
@@ -128,7 +160,7 @@ func drawTableCell(pd *PdfDoc, tbl Table, row TableRow, c TableCell, height floa
 	pd.PrintText(c.Data)
 }
 
-//func draw2cells(pdf *gofpdf.Fpdf, tr func(string) string, nameRu, nameEn string, bgColor, borderColor, textColor string) {
+//func draw2cells(pdf *gofpdf.Fpdf, Tr func(string) string, nameRu, nameEn string, bgColor, borderColor, textColor string) {
 //	pdf.SetX(START_X)
 //	pdf.SetTextColor(255, 255, 255)
 //	switch bgColor {
@@ -153,13 +185,13 @@ func drawTableCell(pd *PdfDoc, tbl Table, row TableRow, c TableCell, height floa
 //
 //	// в случае если текст без переносов и одной строкой
 //	if maxStr == 1 {
-//		pdf.CellFormat(70, 6, tr(nameRu), "1", 0, "CM", true, 0, "")
+//		pdf.CellFormat(70, 6, Tr(nameRu), "1", 0, "CM", true, 0, "")
 //		if textColor == COLOR_LIGHT_BLUE_TEXT {
 //			pdf.SetTextColor(118, 182, 224)
-//			pdf.CellFormat(70, 6, tr(nameEn), "1", 1, "CM", true, 0, "")
+//			pdf.CellFormat(70, 6, Tr(nameEn), "1", 1, "CM", true, 0, "")
 //			pdf.SetTextColor(255, 255, 255)
 //		} else {
-//			pdf.CellFormat(70, 6, tr(nameEn), "1", 1, "CM", true, 0, "")
+//			pdf.CellFormat(70, 6, Tr(nameEn), "1", 1, "CM", true, 0, "")
 //		}
 //	} else {
 //		// если текст из нескольких строк
@@ -171,7 +203,7 @@ func drawTableCell(pd *PdfDoc, tbl Table, row TableRow, c TableCell, height floa
 //		//addY(pdf, 1)
 //		pdf.SetXY(START_X, yStart+1)
 //		for _, line := range linesRu {
-//			pdf.CellFormat(70.0, fontSize, tr(line), "", 1, "CM", false, 0, "")
+//			pdf.CellFormat(70.0, fontSize, Tr(line), "", 1, "CM", false, 0, "")
 //		}
 //
 //		pdf.SetX(70 + START_X)
@@ -196,6 +228,7 @@ func (r *TableRow) getHeight(pd *PdfDoc, tbl Table) float64 {
 		if c.Data.Height == 0 {
 			c.Data.CalcHeight(pd)
 		}
+		h := c.Data.Height
 		// добавляем padding
 		pt := tbl.PaddingTop
 		if r.PaddingTop > 0 {
@@ -204,7 +237,8 @@ func (r *TableRow) getHeight(pd *PdfDoc, tbl Table) float64 {
 		if c.PaddingTop > 0 {
 			pt = c.PaddingTop
 		}
-		h := c.Data.Height + pt
+		h = h + pt
+
 
 		if h > maxHeight {
 			maxHeight = h
