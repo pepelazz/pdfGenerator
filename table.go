@@ -73,7 +73,7 @@ func (r *TableRow) AddCell(c TableCell) {
 	r.Cells = append(r.Cells, c)
 }
 
-func (tbl *Table) getHeight(pd *PdfDoc) float64 {
+func (tbl *Table) GetHeight(pd *PdfDoc) float64 {
 	h := 0.0
 	for _, r := range tbl.Rows {
 		h = h + r.getHeight(pd, *tbl)
@@ -85,7 +85,7 @@ func (tbl *Table) getHeight(pd *PdfDoc) float64 {
 func (tbl *Table) IsTableOutOfPage(pd *PdfDoc, headerHeight float64) bool {
 	_, pH := pd.Pdf.GetPageSize()
 	_, _, _, bMargin := pd.Pdf.GetMargins()
-	return pd.Pdf.GetY()+tbl.getHeight(pd)+headerHeight > (pH - bMargin)
+	return pd.Pdf.GetY()+tbl.GetHeight(pd)+headerHeight > (pH - bMargin)
 }
 
 func (pd *PdfDoc) DrawTable(tbl Table) error {
