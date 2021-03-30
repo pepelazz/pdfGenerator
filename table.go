@@ -60,6 +60,19 @@ func (tbl *Table) AddRowSimple(pd *PdfDoc, txtList []string) {
 	tbl.Rows = append(tbl.Rows, r)
 }
 
+func SplitTextByLine(pd *PdfDoc, txt string, width float64) string {
+	// если текст превышает ширину, то разделяем его
+	if pd.Pdf.GetStringWidth(txt) >= width {
+		lines := pd.Pdf.SplitLines([]byte(txt), width)
+		txtArr := make([]string, len(lines))
+		for j, ln := range lines {
+			txtArr[j] = fmt.Sprintf("%s", ln)
+		}
+		txt = strings.Join(txtArr, "\n")
+	}
+	return txt
+}
+
 // helper для создания простой строки из массива текстовых блоков без автоматических переносов
 func (tbl *Table) AddRowSimpleWithoutHypernation(pd *PdfDoc, txtList []string) {
 	r := TableRow{Cells: []TableCell{}}
